@@ -30,7 +30,7 @@ class JwtVerify
             $secretKey = env('JWT_SECRET');
             $decoded = JWT::decode($jwt, new Key($secretKey, 'HS256'));
 
-            $request->attributes->add(['decoded' => $decoded, 'jwt' => $jwt]);
+            $request->attributes->add(['decoded' => $decoded, 'user' => $decoded->data->response ?? [], 'jwt' => $jwt]);
 
             return $next($request);
 

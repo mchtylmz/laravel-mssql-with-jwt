@@ -5,20 +5,38 @@ namespace App\Helpers;
 use App\Exceptions\ParamNotExistsException;
 use Exception;
 use Illuminate\Support\Facades\DB;
-use stdClass;
+use Illuminate\Support\Str;
 
 class Mssql
 {
+    /**
+     * @var string
+     */
     protected string $viewPrefix = 'v';
-    protected string $mapTableName = 'map';
+    /**
+     * @var string
+     */
+    protected string $mapTableName = 'VisioMedia.util.ApiMap';
 
+    /**
+     * @var string
+     */
     protected string $paramPrefix = '@';
 
+    /**
+     * @var string
+     */
     protected string $paramsSeparator = '|';
 
+    /**
+     * @var array
+     */
     protected array $params = [];
 
-    protected string $query;
+    /**
+     * @var
+     */
+    protected $map;
 
     /**
      * @throws Exception
@@ -26,26 +44,34 @@ class Mssql
     public function queryMaps(string|null $name = null): object|bool
     {
         try {
-            $map = DB::table($this->mapTableName)
-                ->where('IsActive', 1)
-                ->where('ApiName', $name)
-                ->orderBy('ID', 'DESC')
-                ->first();
+            $this->map = cache()->remember('mssql_map_'.$name, 21600, function () use($name) {
+                return DB::table($this->mapTableName)
+                    ->where('IsActive', 1)
+                    ->where('ApiName', $name)
+                    ->orderBy('ID', 'DESC')
+                    ->first();
+            });
 
-            if (!$map) {
-                throw new Exception('Işlem bilgi haritası bulunamadı!', 500);
+            if (!$this->map) {
+                throw new Exception('Not found action map list!', 500);
             }
 
-            $map->Params = array_filter(array_map(function ($param) {
+            $this->map->Params = array_filter(array_map(function ($param) {
                 return str_replace($this->paramPrefix, '', trim($param));
-            }, explode($this->paramsSeparator, $map->Params)));
+            }, explode($this->paramsSeparator, $this->map->Params)));
 
-            return $map;
+            return $this->map;
         } catch (Exception $error) {
             throw new Exception($error->getMessage());
         }
     }
 
+
+    /**
+     * @param array $queryParams
+     * @param string $separator
+     * @return string
+     */
     public function processParams(array $queryParams, string $separator = ','): string
     {
         $params = [];
@@ -74,7 +100,7 @@ class Mssql
         foreach ($map->Params as $param) {
             if (!array_key_exists($param, $queryParams)) {
                 throw new ParamNotExistsException(sprintf(
-                    "%s bulunamadı", $param
+                    "%s param not exists", $param
                 ));
             }
             $this->params[] = $param;
@@ -86,34 +112,50 @@ class Mssql
     /**
      * @throws Exception
      */
-    public function query(string $queryName, array $queryParams = []): string
+    public function query(string $queryName, array|null $queryParams = []): string
     {
         $this->valid($queryName, $queryParams);
 
         $separator = str_starts_with($queryName, $this->viewPrefix) ? 'AND' : ',';
         if ($separator === 'AND') {
             return sprintf(
-                "SELECT * FROM %s WHERE %s", $queryName, $this->processParams($queryParams, $separator)
+                "SELECT * FROM %s WHERE %s", $this->map->DbName, $this->processParams($queryParams, $separator)
             );
         }
 
         return sprintf(
-            "EXEC %s %s", $queryName, $this->processParams($queryParams, $separator)
+            "EXEC %s %s", $this->map->DbName, $this->processParams($queryParams, $separator)
         );
     }
 
     /**
      * @throws Exception
      */
-    public function run(string $query): array
+    public function run(string $query, bool $single = false): array|object
     {
         try {
-            return DB::select($query);
+            $result = DB::select($query);
+            return $single && !empty($result[0]) ? $result[0] : $result;
         } catch (Exception $error) {
             throw new Exception($error->getMessage(), 500);
         }
     }
 
+    public function generateVerifyCode(int $user_id): array
+    {
+        $code = 123456; // Str::random(6);
+        return [$code];
+        return $this->run(sprintf(
+            "EXEC __otp__ @userId = '%s', @code = '%s'",
+            $user_id,
+            $code
+        ));
+    }
+
+    /**
+     * @param string $column
+     * @return string
+     */
     protected function columnPrefix(string $column): string
     {
         return !str_starts_with($column, $this->paramPrefix) ? $this->paramPrefix : '';

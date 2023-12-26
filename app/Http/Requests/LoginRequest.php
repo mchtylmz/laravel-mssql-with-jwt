@@ -24,16 +24,8 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'username' => 'required',
-            'password' => 'required',
-        ];
-    }
-
-    public function messages(): array
-    {
-        return [
-            'username.required' => 'Kullanıcı adı zorunlu!',
-            'password.required' => 'Parola zorunlu!'
+            'Useremail' => 'required',
+            'Password' => 'required',
         ];
     }
 
@@ -43,7 +35,7 @@ class LoginRequest extends FormRequest
             response()->json(array_merge([
                 'code'      => 0,
                 'success'   => 'error',
-                'message'   => $validator->errors()->first() ?? 'Hatalı/eksik alanlar bulunuyor'
+                'message'   => $validator->errors()->first() ?? 'not found'
             ], $data), 400)
         );
     }

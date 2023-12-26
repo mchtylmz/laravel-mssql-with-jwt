@@ -2,6 +2,7 @@
 
 namespace App\Helpers;
 use Firebase\JWT\JWT;
+use Illuminate\Support\Str;
 
 class Encode
 {
@@ -10,7 +11,7 @@ class Encode
         $secretKey = env('JWT_SECRET');
         $payload = [
             'iat' => time(),
-            'exp' => time() + 7200,
+            'exp' => time() + 3600,
             'data' => array_merge(
                 $data,
                 ['ip' => request()->getClientIp()]

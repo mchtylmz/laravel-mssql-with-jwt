@@ -17,15 +17,16 @@ Route::get('/', function () {
 
     // "SELECT * FROM [AdpeaksMedia].[dbo].[vw_GetAPIUserCredentials]"
 
-    $name = "vw_GetAPIUserCredentials";
+    $name = "Get_UserLogin";
     $params = [
-        'data' => 1,
-        'data1' => 2,
-        'data2' => 3
+        'Useremail' => 'ismail@adlookups.com',
+        'Password' => 'Pswd1234'
     ];
 
+    $sql = (new \App\Helpers\Mssql())->query($name, $params);
     dd(
-        (new \App\Helpers\Mssql())->query($name, $params)
+        $sql,
+        (new \App\Helpers\Mssql())->run($sql)
     );
 
     return view('welcome');
