@@ -4,13 +4,17 @@ namespace App\Helpers;
 
 use App\Exceptions\ParamNotExistsException;
 use Exception;
+use Illuminate\Support\Facades\DB;
 use stdClass;
 
 class Mssql
 {
     protected string $viewPrefix = 'v';
+    protected string $mapTableName = 'map';
 
     protected string $paramPrefix = '@';
+
+    protected string $paramsSeparator = '|';
 
     protected array $params = [];
 
@@ -22,17 +26,21 @@ class Mssql
     public function queryMaps(string|null $name = null): object|bool
     {
         try {
-            $new = new StdClass();
-            $new->params = '@user1,@user2, @user3';
-            //$new->params = '';
-            $new->dbName = '[-bir-][-iki-][--uc--]';
+            $map = DB::table($this->mapTableName)
+                ->where('IsActive', 1)
+                ->where('ApiName', $name)
+                ->orderBy('ID', 'DESC')
+                ->first();
 
-            $new->params = array_filter(array_map(function ($param) {
+            if (!$map) {
+                throw new Exception('Işlem bilgi haritası bulunamadı!', 500);
+            }
+
+            $map->Params = array_filter(array_map(function ($param) {
                 return str_replace($this->paramPrefix, '', trim($param));
-            }, explode(',', $new->params)));
+            }, explode($this->paramsSeparator, $map->Params)));
 
-            //TODO: yoksa hataya at
-            return $new;
+            return $map;
         } catch (Exception $error) {
             throw new Exception($error->getMessage());
         }
@@ -63,7 +71,7 @@ class Mssql
     public function valid(string $queryName, array $queryParams = []): self
     {
         $map = $this->queryMaps($queryName);
-        foreach ($map->params as $param) {
+        foreach ($map->Params as $param) {
             if (!array_key_exists($param, $queryParams)) {
                 throw new ParamNotExistsException(sprintf(
                     "%s bulunamadı", $param
@@ -92,6 +100,18 @@ class Mssql
         return sprintf(
             "EXEC %s %s", $queryName, $this->processParams($queryParams, $separator)
         );
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function run(string $query): array
+    {
+        try {
+            return DB::select($query);
+        } catch (Exception $error) {
+            throw new Exception($error->getMessage(), 500);
+        }
     }
 
     protected function columnPrefix(string $column): string
