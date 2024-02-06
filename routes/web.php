@@ -1,33 +1,26 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group. Make something great!
-|
-*/
+use Illuminate\Support\Facades\Artisan;
 
 Route::get('/', function () {
 
-    // "SELECT * FROM [AdpeaksMedia].[dbo].[vw_GetAPIUserCredentials]"
-
-    $name = "Get_UserLogin";
-    $params = [
-        'Useremail' => 'ismail@adlookups.com',
-        'Password' => 'Pswd1234'
-    ];
-
-    $sql = (new \App\Helpers\Mssql())->query($name, $params);
-    dd(
-        $sql,
-        (new \App\Helpers\Mssql())->run($sql)
-    );
+    verifyMail('ismail@adlookups.com', [
+        'email' => 'ismail@adlookups.com',
+        'subject' => 'PlanVisio Access Code',
+        'code' => rand(100000, 999999)
+    ]);
 
     return view('welcome');
+});
+
+
+
+Route::prefix('cron')->group(function () {
+
+});
+
+Route::post('clear', function () {
+    Artisan::call('cache:clear');
+    Artisan::call('config:clear');
 });

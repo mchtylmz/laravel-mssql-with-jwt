@@ -1,14 +1,14 @@
 <?php
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\ApiController;
 use Illuminate\Support\Facades\Route;
 
-Route::post('login', [\App\Http\Controllers\ApiController::class, 'login']);
+Route::post('login', [ApiController::class, 'login']);
 
 Route::middleware('jwt')->group(function () {
-    Route::post('verify', [\App\Http\Controllers\ApiController::class, 'verify']);
-    Route::post('resend-verify', [\App\Http\Controllers\ApiController::class, 'resendVerify']);
-    Route::post('get/{name}', [\App\Http\Controllers\ApiController::class, 'get']);
+    Route::post('verify', [ApiController::class, 'verify']);
+    Route::post('resend-verify', [ApiController::class, 'resendVerify']);
+    Route::post('execute/{name}', [ApiController::class, 'execute']);
+    Route::post('upload', [ApiController::class, 'upload']);
+    Route::post('get-file', [ApiController::class, 'getFile']);
 });
-
-

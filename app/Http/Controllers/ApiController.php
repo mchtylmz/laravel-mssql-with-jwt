@@ -8,6 +8,7 @@ use App\Helpers\Mssql;
 use App\Http\Requests\LoginRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 
 class ApiController extends Controller
 {
@@ -19,14 +20,14 @@ class ApiController extends Controller
         ], true);
         if (isFailed($response)) {
             return response()->json([
-                'code' => 401,
+                'code' => 422,
                 'status' => 'error',
                 'message' => 'Failed login'
-            ], 401);
+            ], 422);
         }
 
-        $token = Encode::jwt(['response' => $response]);
-        mssql()->generateVerifyCode($response->UserID);
+        $token = Encode::jwt(['response' => $response, 'time' => time()]);
+        verify($response->UserID, $response->Email);
 
         return response()->json([
             'code' => 200,
@@ -40,35 +41,39 @@ class ApiController extends Controller
     public function verify(Request $request)
     {
         $UserID = $request->attributes->get('user')->UserID ?? 0;
-        /*
-        $response = procedure("__OTP_VERIFY__", [
+
+        $response = procedure("User_VerifyCode", [
             'UserID' => $UserID,
-            'code' => $request->code
+            'VerifyCode' => $request->Code
         ], true);
 
         if (isFailed($response)) {
             return response()->json([
                 'code' => 401,
                 'status' => 'error',
-                'message' => 'Failed otp'
+                'message' => 'Code is invalid or expired'
             ], 401);
-        }*/
+        }
+
+        $token = Encode::jwt(['response' => $request->attributes->get('user'), 'time' => time()]);
 
         return response()->json([
             'code' => 200,
             'status' => 'success',
-            'message' => 'successfully otp',
+            'message' => 'successfully login',
             'user' => $request->attributes->get('user'),
             'sites' => procedure("Get_UserSites", [
                 'pUserID' => $UserID
-            ])
+            ]),
+            'token' => $token
         ]);
     }
 
     public function resendVerify(Request $request)
     {
         $UserID = $request->attributes->get('user')->UserID ?? 0;
-        mssql()->generateVerifyCode($UserID);
+        $UserEmail = $request->attributes->get('user')->Email ?? '';
+        verify($UserID, $UserEmail);
 
         return response()->json([
             'code' => 200,
@@ -78,11 +83,7 @@ class ApiController extends Controller
         ]);
     }
 
-    // login
-    // verify -> resend
-    // verify token change
-
-    public function get(string $name)
+    public function execute(string $name)
     {
         $params = json_decode(request()->getContent(), true) ?? [];
         $results = procedure($name, $params);
@@ -91,6 +92,62 @@ class ApiController extends Controller
             'total' => count($results),
             'results' => $results,
             'params' => $params
+        ]);
+    }
+
+    public function upload()
+    {
+        if (!request()->hasFile('file')) {
+            return response()->json([
+                'message' => 'file not found',
+                'status' => 'error'
+            ], 400);
+        }
+
+        $file = request()->file('file');
+        $path = $file->storeAs(
+            'Plan',
+            $file->getClientOriginalName(),
+            's3'
+        );
+
+        $url = Storage::disk('s3')->temporaryUrl(
+            $path, now()->addDay()
+        );
+
+        return response()->json([
+            'path' => $path,
+            'url' => $url,
+            'message' => 'file uploaded',
+            'status' => 'success'
+        ]);
+    }
+
+    public function getFile()
+    {
+        if (!request()->has('path')) {
+            return response()->json([
+                'message' => 'path not found',
+                'status' => 'error'
+            ], 400);
+        }
+
+        $url = Storage::disk('s3')->temporaryUrl(
+            request()->has('path'), now()->addDay()
+        );
+
+        if (!$url) {
+            return response()->json([
+                'message' => 'url not found',
+                'status' => 'error'
+            ], 400);
+        }
+
+        return response()->json([
+            'path' => request()->has('path'),
+            'url' => $url,
+            'message' => 'file uploaded',
+            'status' => 'success'
         ]);
     }
 }

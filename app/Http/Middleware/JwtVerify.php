@@ -33,7 +33,6 @@ class JwtVerify
             $request->attributes->add(['decoded' => $decoded, 'user' => $decoded->data->response ?? [], 'jwt' => $jwt]);
 
             return $next($request);
-
         }
         catch (ExpiredException|\Exception $error) {
             return response()->json([

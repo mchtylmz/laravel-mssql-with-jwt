@@ -16,7 +16,7 @@ class Mssql
     /**
      * @var string
      */
-    protected string $mapTableName = 'VisioMedia.util.ApiMap';
+    protected string $mapTableName = 'VisioMedia.dbo.vw_ApiMap';
 
     /**
      * @var string
@@ -44,12 +44,12 @@ class Mssql
     public function queryMaps(string|null $name = null): object|bool
     {
         try {
-            $this->map = cache()->remember('mssql_map_'.$name, 21600, function () use($name) {
-                return DB::table($this->mapTableName)
-                    ->where('IsActive', 1)
-                    ->where('ApiName', $name)
-                    ->orderBy('ID', 'DESC')
-                    ->first();
+            $key = sprintf('map_%s_%s', $name, date('YmdH'));
+            $this->map = cache()->forever($key, function() use($name) {
+               return DB::table($this->mapTableName)
+                   //->where('IsActive', 1)
+                   ->where('ApiName', $name)
+                   ->first();
             });
 
             if (!$this->map) {
@@ -77,10 +77,7 @@ class Mssql
         $params = [];
 
         foreach ($this->params as $column) {
-            $value = $queryParams[$column] ?? false;
-            if ($value) {
-                $params[] = sprintf(" %s = '%s'", $this->columnPrefix($column).$column, $value);
-            }
+            $params[] = sprintf(" %s = '%s'", $this->columnPrefix($column).$column, $queryParams[$column] ?? 0);
         }
 
         return implode($separator, $params);
@@ -141,15 +138,17 @@ class Mssql
         }
     }
 
-    public function generateVerifyCode(int $user_id): array
+    public function generateVerifyCode(int $userId): string
     {
-        $code = 123456; // Str::random(6);
-        return [$code];
-        return $this->run(sprintf(
-            "EXEC __otp__ @userId = '%s', @code = '%s'",
-            $user_id,
-            $code
-        ));
+        $code = 123456; //rand(100000, 999999);
+
+        $query = $this->query('UserVerify_Amend', [
+            'UserID' => $userId,
+            'VerifyCode' => $code
+        ]);
+        $this->run($query, true);
+
+        return $code;
     }
 
     /**

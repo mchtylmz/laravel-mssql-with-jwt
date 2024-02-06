@@ -11,7 +11,7 @@ class Encode
         $secretKey = env('JWT_SECRET');
         $payload = [
             'iat' => time(),
-            'exp' => time() + 3600,
+            'exp' => time() + 21600,
             'data' => array_merge(
                 $data,
                 ['ip' => request()->getClientIp()]
